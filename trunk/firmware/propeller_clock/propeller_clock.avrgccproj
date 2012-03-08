@@ -3,7 +3,7 @@
   <PropertyGroup>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectVersion>5.0</ProjectVersion>
-    <ProjectGuid>{d1986f1d-b2db-4656-94b1-8f5444981391}</ProjectGuid>
+    <ProjectGuid>{b25bed2b-50e5-44c9-8105-e4d6d44f4539}</ProjectGuid>
     <avrdevice>ATmega8</avrdevice>
     <avrdeviceseries>none</avrdeviceseries>
     <OutputType>Executable</OutputType>
@@ -29,7 +29,7 @@
       </ToolNumber>
       <Channel xmlns="">
         <host>127.0.0.1</host>
-        <port>49861</port>
+        <port>63859</port>
         <ssl>False</ssl>
       </Channel>
     </com_atmel_avrdbg_tool_simulator>
@@ -67,11 +67,6 @@
       </AvrGcc>
     </ToolchainSettings>
     <MemorySettings>
-      <MemorySegments>
-  <InitialStack IsEnabled="0">
-    <Address>0x400</Address>
-  </InitialStack>
-</MemorySegments>
     </MemorySettings>
     <GenerateHexFile>True</GenerateHexFile>
     <GenerateMapFile>True</GenerateMapFile>
