@@ -39,13 +39,13 @@ void init();
 /* Switch on leds */
 inline void led_on()
 {
-    PORTA |= 1 << OE;	
+	PORTA &= ~(1 << OE);
 }
 
 /* Switch off leds */
 inline void led_off()
 {
-	PORTA &= ~(1 << OE);
+    PORTA |= 1 << OE;	
 }
 
 /* Output led line using shift register based drivers */
@@ -145,6 +145,9 @@ inline void init()
 	OCR1A = 800;  // ~10hz interrupt
 	TIMSK |= 0x10; // Enable compare interrupt
 	
+	/* Turn off leds by default by setting 1 to OE */
+	led_off();
+		
 	sei();
 }
 
