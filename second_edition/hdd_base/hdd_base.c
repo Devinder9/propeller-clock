@@ -15,12 +15,16 @@
 #define LE PA2
 #define OE PA0
 
-ISR(TIMER1_COMPA_vect)
+ISR(TIMER2_OVF_vect)
 {
-	PORTA = (0x01&~PORTA)+(PORTA&0xFE);
-	TCNT1 = 0x0000;
+	//PORTA = (0x01&~PORTA)+(PORTA&0xFE);
+	//TCNT1 = 0x0000;
 }
 
+
+ISR(TIMER2_COMP_vect)
+{
+}
 
 void Init()
 {
@@ -43,14 +47,23 @@ PORTA = 0xFF;
 PORTB = 0x03;
 
 //Configure ADC
-ADMUX = 0x07
-ADCSRA = 0xDE
+ADMUX = 0x07;
+ADCSRA = 0xDE;
 
-//For ATmega8535
-TIMSK = 0x10; //COMPA interrupt
+
+
+//T1 PWM - DAC
 TCCR1A = 0x40;
 TCCR1B = 0x03;//CK/64
-OCR1A = 20; //3125 Hz
+OCR1A  = 100; //3125 Hz
+
+//T2 PWM 3khz 50% - Power
+TCCR2 = 0x1A;
+OCR2  =	84;
+
+//Enable timer interrupts
+TIMSK = 0xC0;
+//PORTD |= 0x05;
 
 sei();
 }
