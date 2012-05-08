@@ -9,9 +9,9 @@
  *
  */ 
 #define F_CPU 8000000UL
-#define SDI1 PB1
-#define SDI2 PB2
-#define SDI3 PB3
+#define SDI1 PB0
+#define SDI2 PB1
+#define SDI3 PB2
 #define CLK PA1
 #define LE PA2
 #define OE PA0
@@ -123,8 +123,8 @@ inline void init()
 	
 	/* Output/input port init */
 	             //   7   6   5   4   3   2   1   0
-	DDRA = 0x08; // |   |   |   |   |   | OE|CLK| CE|
-	DDRB = 0x08; // |   |   |   |   |   |SDI|SDI|SDI|
+	DDRA = 0x07; // |   |   |   |   |   | OE|CLK| CE|
+	DDRB = 0x07; // |   |   |   |   |   |SDI|SDI|SDI|
 	DDRC = 0x00; // |   |   |   |   |   |   |   |   |
 	DDRD = 0x00; // |   |   |   |   | RC|DET|   |   |
 	/* Pull up */
@@ -135,7 +135,7 @@ inline void init()
 	ADCSRA = 0xFF; // Enable ADC interrupt, set clock multiplexer to 128
 	
 	/* Init 8-bit counter used for led PWM */
-	TCCR0 = 0x05; // clk/1024
+	TCCR0 = 0x04; // 
 	OCR0 = PWM;   // Set PWM ratio
 	TIMSK = 0x03;  // Enable compare and overflow interrupt
 	
