@@ -91,13 +91,84 @@ ISR( TIMER0_OVF_vect)
 	led_on();
 }
 
+struct time_t{
+	uint8_t hour;
+	uint8_t minute;
+}time;
+
+/* Draw analog clock */
+uint32_t draw_clock(uint16_t pos)
+{
+	uint32_t out = 0x00000000;
+	
+	/* Draw 5-minutes bars */
+	if ((pos % 30) == 0)
+	{
+		out |= (1 << 23) | (1 << 22);
+	}
+	
+	/* Draw 15-minutes bars */
+	if ((pos % 90) == 0)
+	{
+		out |= (1 << 21) | (1 << 21);
+	}
+	
+	/* Draw hour arrow */
+	if ((pos / 6) == time.hour)
+	{
+		out |= 0x000000ff;
+	}
+	
+	/* Draw minute arrow */
+	if ((pos / 6) == time.minute)
+	{
+		out |= 0x0000ffff;
+	}
+	
+	return out;
+}
+
+/* Duration in counts of one grad 
+ * Requires tuning depending on initial rotation speed */
+uint16_t grad_dur = 100;
+
+/* Current position in grad */
+uint16_t pos_grad = 0;
+
 /* Temp stuff */
 uint32_t cnt = 0;
 ISR( TIMER1_COMPA_vect)
 {
-	cnt =  (cnt == 16777215) ? 0 : (cnt + 1);
-	output_to_sr( cnt);
-	TCNT1 = 0;
+	pos_grad++;
+	output_to_sr(grad_dur);
+}
+
+
+/* Position detector interrupt */
+ISR( INT0_vect)
+{
+	/* Tune grad duration */
+	if (pos_grad < 356)
+	{
+		grad_dur++;
+	} else if (pos_grad > 364)
+	{
+		grad_dur--;
+	}
+	
+	/* Reset position */
+	pos_grad = 0;
+}
+
+/* Realtime counter interrupt 
+ * Update current time */
+ISR( TIMER2_COMP_vect)
+{
+	TCNT2 = 0x00;
+	uint8_t carry = 0;
+	carry = (time.minute == 59) ? 1 : 0;
+	time.minute = (carry) ? 0 : (time.minute + 1);
+	time.hour = ((time.hour + carry) == 12) ? 0 : time.hour + 1;
 }
 
 /* Software voltage damper */
@@ -144,6 +215,16 @@ inline void init()
 	TCCR1B = 0x05; // clk/1024
 	OCR1A = 800;  // ~10hz interrupt
 	TIMSK |= 0x10; // Enable compare interrupt
+	
+	/* Init 8-bit counter with external oscillator */
+	TCCR2 = 0x01;          // No prescaling
+	ASSR = (1 << AS2);     // Enable external oscillator
+	TIMSK |= (1 << OCIE2); // Enable interrupt on compare match
+	
+	
+	/* Turn on INT0 on falling edge */
+	MCUCR = (1 << ISC01);
+	GICR = (1 << INT0);
 	
 	/* Turn off leds by default by setting 1 to OE */
 	led_off();
