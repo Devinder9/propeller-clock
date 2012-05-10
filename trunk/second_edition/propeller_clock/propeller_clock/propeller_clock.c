@@ -28,7 +28,7 @@
 #include <avr/interrupt.h>
 #include <inttypes.h>
 #include <stdint.h>
-#include <avr/io.h>
+#include <avr/sleep.h>
 
 /* Declarations */
 void led_on();
@@ -258,6 +258,9 @@ inline void init()
 	
 	/* Turn off leds by default by setting 1 to OE */
 	led_off();
+	
+	/* Finally set desired sleep mode */
+	set_sleep_mode(SLEEP_MODE_IDLE);
 		
 	sei();
 }
@@ -270,6 +273,7 @@ int main(void)
 	/* Main cycle */	
     while(1)
     {
-        // Do nothing. Wait for interrupts.
+        /* Do nothing. Sleep and wake on interrupts */
+		sleep_mode();
     }
 }
