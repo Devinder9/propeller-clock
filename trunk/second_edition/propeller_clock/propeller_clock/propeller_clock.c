@@ -22,7 +22,7 @@
 
 /* ratio = PWM / 256. 
  * PWM = 0..256 */
-#define PWM 25
+#define PWM 15
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -33,6 +33,7 @@
 /* Declarations */
 void led_on();
 void led_off();
+uint32_t mixer();
 void output_to_sr( uint32_t led_line);
 void init();
 
@@ -48,22 +49,43 @@ inline void led_off()
     PORTA |= 1 << OE;	
 }
 
+/* Mix output led line to display it correctly 
+ * See led line schematic
+ *
+ * | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10| 11| 12| 13| 14| 15| 16| 17| 18| 19| 20| 21| 22| 23|
+ *
+ * | 7 | 6 | 5 | 4 | 0 | 1 | 2 | 3 | 15| 14| 13| 12| 8 | 9 | 10| 11| 23| 22| 21| 20| 16| 17| 18| 19|
+ *
+ */
+uint32_t mixer(uint32_t input_line)
+{
+	uint32_t output_line = 0x00000000;
+	const uint8_t bit_mix[24] = {7,6,5,4,0,1,2,3,15,15,13,12,8,9,10,11,23,22,21,20,16,17,18,19};
+	uint8_t i = 0;
+	for (i = 0; i < 24; i++)
+	{
+		output_line |= ((input_line & (1UL << i)) >> i) << bit_mix[i];
+	}
+	return output_line;
+}
+
 /* Output led line using shift register based drivers */
 void output_to_sr(uint32_t led_line)
 {
-	/* Short solution */
+	uint32_t led_line_mixd = mixer(led_line);
+	
 	uint8_t i = 0;
 	for (i = 0; i < 8; i++)
 	{
+		/* Reset SDI */
+		PORTB &= ~((1 << SDI1) | (1 << SDI2) | (1 << SDI3));
 		/* Set SDI */
-		PORTB |= ((led_line & (1 << i)) >> i) << SDI1;
-		PORTB |= ((led_line & (1 << (i + 8))) >> (i + 8)) << SDI2;
-		PORTB |= ((led_line & (1 << (i + 16))) >> (i + 16)) << SDI3;
+		PORTB |= ((led_line_mixd & (1UL << i)) >> i) << SDI1;
+		PORTB |= ((led_line_mixd & (1UL << (i + 8))) >> (i + 8)) << SDI2;
+		PORTB |= ((led_line_mixd & (1UL << (i + 16))) >> (i + 16)) << SDI3;
 		/* CLK output */
 		PORTA |= (1 << CLK);	
 		PORTA &= ~(1 << CLK);
-		/* Reset SDI */
-		PORTB &= ~((1 << SDI1) | (1 << SDI2) | (1 << SDI3));
 	}
 	/* CLK and LE output */
     PORTA |= (1 << LE);
@@ -91,9 +113,10 @@ ISR( TIMER0_OVF_vect)
 	led_on();
 }
 
+/* Structure to store current time */
 struct time_t{
-	uint8_t hour;
-	uint8_t minute;
+	uint8_t sec;
+	uint8_t min;
 }time;
 
 /* Draw analog clock */
@@ -104,23 +127,23 @@ uint32_t draw_clock(uint16_t pos)
 	/* Draw 5-minutes bars */
 	if ((pos % 30) == 0)
 	{
-		out |= (1 << 23) | (1 << 22);
+		out |= (1UL << 23) | (1UL << 22);
 	}
 	
 	/* Draw 15-minutes bars */
 	if ((pos % 90) == 0)
 	{
-		out |= (1 << 21) | (1 << 21);
+		out |= (1UL << 21) | (1UL << 21);
 	}
 	
-	/* Draw hour arrow */
-	if ((pos / 6) == time.hour)
+	/* Draw minute arrow */
+	if ((pos / 6) == time.min)
 	{
 		out |= 0x000000ff;
 	}
 	
-	/* Draw minute arrow */
-	if ((pos / 6) == time.minute)
+	/* Draw second arrow */
+	if ((pos / 6) == time.sec)
 	{
 		out |= 0x0000ffff;
 	}
@@ -140,9 +163,7 @@ uint32_t cnt = 0;
 ISR( TIMER1_COMPA_vect)
 {
 	pos_grad++;
-	output_to_sr(grad_dur);
 }
-
 
 /* Position detector interrupt */
 ISR( INT0_vect)
@@ -165,10 +186,18 @@ ISR( INT0_vect)
 ISR( TIMER2_COMP_vect)
 {
 	TCNT2 = 0x00;
-	uint8_t carry = 0;
-	carry = (time.minute == 59) ? 1 : 0;
-	time.minute = (carry) ? 0 : (time.minute + 1);
-	time.hour = ((time.hour + carry) == 12) ? 0 : time.hour + 1;
+	time.sec++;
+	if (time.sec == 60)
+	{
+		time.sec = 0;
+		time.min++;
+	}
+	if (time.min == 60)
+	{
+		time.min = 0;
+	}
+	/* DEBUG */
+	output_to_sr(1UL << time.sec);
 }
 
 /* Software voltage damper */
@@ -217,8 +246,9 @@ inline void init()
 	TIMSK |= 0x10; // Enable compare interrupt
 	
 	/* Init 8-bit counter with external oscillator */
-	TCCR2 = 0x01;          // No prescaling
+	TCCR2 = 0x07;          // clk/1024
 	ASSR = (1 << AS2);     // Enable external oscillator
+	OCR2 = 32;             // Interrupt every second
 	TIMSK |= (1 << OCIE2); // Enable interrupt on compare match
 	
 	
