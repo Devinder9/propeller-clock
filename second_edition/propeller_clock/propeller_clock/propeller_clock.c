@@ -22,7 +22,7 @@
 
 /* ratio = PWM / 256. 
  * PWM = 0..256 */
-#define PWM 15
+#define PWM 5
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -54,13 +54,13 @@ inline void led_off()
  *
  * | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10| 11| 12| 13| 14| 15| 16| 17| 18| 19| 20| 21| 22| 23|
  *
- * | 7 | 6 | 5 | 4 | 0 | 1 | 2 | 3 | 15| 14| 13| 12| 8 | 9 | 10| 11| 23| 22| 21| 20| 16| 17| 18| 19|
+ * | 0 | 1 | 2 | 3 | 7 | 6 | 5 | 4 | 8 | 9 | 10| 11| 15| 14| 13| 12| 16| 17| 18| 19| 23| 22| 21| 20|
  *
  */
 uint32_t mixer(uint32_t input_line)
 {
 	uint32_t output_line = 0x00000000;
-	const uint8_t bit_mix[24] = {7,6,5,4,0,1,2,3,15,15,13,12,8,9,10,11,23,22,21,20,16,17,18,19};
+	const uint8_t bit_mix[24] = {0,1,2,3,7,6,5,4,8,9,10,11,15,14,13,12,16,17,18,19,23,22,21,20};
 	uint8_t i = 0;
 	for (i = 0; i < 24; i++)
 	{
@@ -74,18 +74,18 @@ void output_to_sr(uint32_t led_line)
 {
 	uint32_t led_line_mixd = mixer(led_line);
 	
-	uint8_t i = 0;
-	for (i = 0; i < 8; i++)
+	int8_t i = 0;
+	for (i = 7; i >= 0; i--)
 	{
+		/* CLK output */
+		PORTA |= (1 << CLK);	
+		PORTA &= ~(1 << CLK);
 		/* Reset SDI */
 		PORTB &= ~((1 << SDI1) | (1 << SDI2) | (1 << SDI3));
 		/* Set SDI */
 		PORTB |= ((led_line_mixd & (1UL << i)) >> i) << SDI1;
 		PORTB |= ((led_line_mixd & (1UL << (i + 8))) >> (i + 8)) << SDI2;
 		PORTB |= ((led_line_mixd & (1UL << (i + 16))) >> (i + 16)) << SDI3;
-		/* CLK output */
-		PORTA |= (1 << CLK);	
-		PORTA &= ~(1 << CLK);
 	}
 	/* CLK and LE output */
     PORTA |= (1 << LE);
@@ -185,6 +185,8 @@ ISR( INT0_vect)
  * Update current time */
 ISR( TIMER2_COMP_vect)
 {
+	/* DEBUG */
+	output_to_sr(time.sec);
 	TCNT2 = 0x00;
 	time.sec++;
 	if (time.sec == 60)
@@ -196,8 +198,6 @@ ISR( TIMER2_COMP_vect)
 	{
 		time.min = 0;
 	}
-	/* DEBUG */
-	output_to_sr(1UL << time.sec);
 }
 
 /* Software voltage damper */
@@ -209,10 +209,10 @@ ISR( ADC_vect)
 	
 	ADC_value = ADCL+((uint16_t) ADCH << 8);
 	
-	if ( ADC_value > Dhigh)
-		PORTD = PORTD | (_BV(PIND4));
-	if ( ADC_value < Dlow)
-		PORTD = PORTD & (~(_BV(PIND4)));
+	//if ( ADC_value > Dhigh)
+		//PORTD = PORTD | (_BV(PIND4));
+	//if ( ADC_value < Dlow)
+		//PORTD = PORTD & (~(_BV(PIND4)));
 	sei();
 }
 

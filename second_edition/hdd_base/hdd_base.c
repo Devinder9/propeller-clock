@@ -59,11 +59,11 @@ OCR1A  = 100; //3125 Hz
 
 //T2 PWM 3khz 50% - Power
 TCCR2 = 0x1A;
-OCR2  =	84;
+OCR2  =	42*4;
 
 //Enable timer interrupts
 TIMSK = 0xC0;
-//PORTD |= 0x05;
+//PORTD |= 0x10;
 
 sei();
 }
