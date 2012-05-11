@@ -151,6 +151,78 @@ uint32_t draw_clock(uint16_t pos)
 	return out;
 }
 
+/* Draw digital clock */
+const uint8_t dig[10][5] = {
+   {0b11111111, // 0
+	0b10000001,
+	0b10000001,
+	0b10000001,
+	0b11111111},
+   {0b00000001, // 1
+	0b01000001,
+	0b11111111,
+	0b00000001,
+	0b00000001},
+   {0b11110001, // 2
+	0b10010001,
+	0b10010001,
+	0b10010001,
+	0b10011111},
+   {0b10000001, // 3
+	0b10000001,
+	0b10010001,
+	0b10010001,
+	0b11111111},
+   {0b11110000, // 4
+	0b00010000,
+	0b00010000,
+	0b00010000,
+	0b11111111},
+   {0b10011111, // 5
+	0b10010001,
+	0b10010001,
+	0b10010001,
+	0b11110001},
+   {0b11111111, // 6
+	0b10010001,
+	0b10010001,
+	0b10010001,
+	0b10011111},
+   {0b10000000, // 7
+	0b10000000,
+	0b10011111,
+	0b10100000,
+	0b11000000},
+   {0b11111111, // 8
+	0b10010001,
+	0b10010001,
+	0b10010001,
+	0b11111111},
+   {0b11110001, // 9
+	0b10010001,
+	0b10010001,
+	0b10010001,
+	0b11111111}
+};
+uint32_t draw_digital(uint16_t pos)
+{
+	uint32_t out = 0x00000000;
+	if (pos < 30)
+	{
+	    if ((pos - 0) % 6 == 0)
+	    {
+		    out = dig[time.sec % 10][(pos - 0) / 6];
+	    }
+	} else if (pos > 330)
+    {
+        if ((pos - 330) % 6 == 0)
+	    {
+		    out = dig[(time.sec / 10) % 10][(pos - 330) / 6];
+	    }        
+    }
+	return out << 10;
+}
+
 /* Duration in counts of one grad 
  * Requires tuning depending on initial rotation speed */
 uint16_t grad_dur = 100;
@@ -241,8 +313,8 @@ inline void init()
 	
 	/* Init 16-bit counter used for different stuff */
 	TCCR1A = 0x00;
-	TCCR1B = 0x05; // clk/1024
-	OCR1A = 800;  // ~10hz interrupt
+	TCCR1B = 0x01; // clk/1
+	OCR1A = 1111;  // ~7200hz interrupt
 	TIMSK |= 0x10; // Enable compare interrupt
 	
 	/* Init 8-bit counter with external oscillator */
