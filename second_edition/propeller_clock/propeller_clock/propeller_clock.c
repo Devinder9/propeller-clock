@@ -125,28 +125,28 @@ uint32_t draw_clock(uint16_t pos)
 	uint32_t out = 0x00000000;
 	
 	/* Draw 5-minutes bars */
-	if ((pos % 30) == 0)
+	if ((pos % 5) == 0)
 	{
-		out |= (1UL << 23) | (1UL << 22);
+		out |= (1UL << 7) | (1UL << 6);
 	}
 	
 	/* Draw 15-minutes bars */
-	if ((pos % 90) == 0)
+	if ((pos % 15) == 0)
 	{
-		out |= (1UL << 21) | (1UL << 21);
+		out |= (1UL << 2) | (1UL << 3);
 	}
 	
 	/* Draw minute arrow */
-	if ((pos / 6) == time.min)
-	{
-		out |= 0x000000ff;
-	}
+	//if ((pos / 6) == time.min)
+	//{
+	//	out |= 0x000000ff;
+	//}
 	
 	/* Draw second arrow */
-	if ((pos / 6) == time.sec)
-	{
-		out |= 0x0000ffff;
-	}
+	//if ((pos / 6) == time.sec)
+	//{
+	//	out |= 0x0000ffff;
+	//}
 	
 	return out;
 }
@@ -213,7 +213,7 @@ uint32_t draw_digital(uint16_t pos)
 	    {
 		    out = dig[time.sec % 10][(pos - 0) / 6];
 	    }
-	} else if (pos > 330)
+	} else if ((pos >= 330) && (pos < 360))
     {
         if ((pos - 330) % 6 == 0)
 	    {
@@ -225,29 +225,49 @@ uint32_t draw_digital(uint16_t pos)
 
 /* Duration in counts of one grad 
  * Requires tuning depending on initial rotation speed */
-uint16_t grad_dur = 100;
+uint16_t grad_dur = 10;
 
 /* Current position in grad */
 uint16_t pos_grad = 0;
 
 /* Temp stuff */
-uint32_t cnt = 0;
+uint8_t cnt = 0x00;
 ISR( TIMER1_COMPA_vect)
 {
-	pos_grad++;
+	TCNT1 = 0;
+	if (pos_grad < 69)
+	{
+		pos_grad++;
+	}
+	if (pos_grad == time.sec)
+	{
+		led_on();		
+	} else
+	{
+		led_off();
+	}
+	//uint32_t out_line = draw_clock(pos_grad);
+	//output_to_sr(out_line);	
+	//cnt = ~cnt;
+	//output_to_sr(cnt);
 }
 
 /* Position detector interrupt */
 ISR( INT0_vect)
 {
+	/* DEBUG */
+	//output_to_sr(0xffff);
 	/* Tune grad duration */
-	if (pos_grad < 356)
-	{
-		grad_dur++;
-	} else if (pos_grad > 364)
+	if (pos_grad < 55)
 	{
 		grad_dur--;
+	} else if (pos_grad > 65)
+	{
+		grad_dur++;
 	}
+	
+	TCNT1 = 0;
+	OCR1A = grad_dur;
 	
 	/* Reset position */
 	pos_grad = 0;
@@ -258,7 +278,7 @@ ISR( INT0_vect)
 ISR( TIMER2_COMP_vect)
 {
 	/* DEBUG */
-	output_to_sr(time.sec);
+	//output_to_sr(time.sec);
 	TCNT2 = 0x00;
 	time.sec++;
 	if (time.sec == 60)
@@ -273,20 +293,20 @@ ISR( TIMER2_COMP_vect)
 }
 
 /* Software voltage damper */
-ISR( ADC_vect)
-{
-	cli(); 	
-	
-	uint16_t ADC_value;
-	
-	ADC_value = ADCL+((uint16_t) ADCH << 8);
-	
-	//if ( ADC_value > Dhigh)
-		//PORTD = PORTD | (_BV(PIND4));
-	//if ( ADC_value < Dlow)
-		//PORTD = PORTD & (~(_BV(PIND4)));
-	sei();
-}
+//ISR( ADC_vect)
+//{
+	//cli(); 	
+	//
+	//uint16_t ADC_value;
+	//
+	//ADC_value = ADCL+((uint16_t) ADCH << 8);
+	//
+	////if ( ADC_value > Dhigh)
+		////PORTD = PORTD | (_BV(PIND4));
+	////if ( ADC_value < Dlow)
+		////PORTD = PORTD & (~(_BV(PIND4)));
+	//sei();
+//}
 
 /* Device initialization */
 inline void init()
@@ -303,19 +323,19 @@ inline void init()
 	PORTD = 0x0C;
 	
 	/* ADC initialization */
-	ADMUX = 0x03;  // AREF as source, ADC3(PA3) as input source
-	ADCSRA = 0xFF; // Enable ADC interrupt, set clock multiplexer to 128
+	//ADMUX = 0x03;  // AREF as source, ADC3(PA3) as input source
+	//ADCSRA = 0xFF; // Enable ADC interrupt, set clock multiplexer to 128
 	
 	/* Init 8-bit counter used for led PWM */
-	TCCR0 = 0x04; // 
-	OCR0 = PWM;   // Set PWM ratio
-	TIMSK = 0x03;  // Enable compare and overflow interrupt
+	//TCCR0 = 0x04; // 
+	//OCR0 = PWM;   // Set PWM ratio
+	//TIMSK = 0x03;  // Enable compare and overflow interrupt
 	
 	/* Init 16-bit counter used for different stuff */
 	TCCR1A = 0x00;
-	TCCR1B = 0x01; // clk/1
-	OCR1A = 1111;  // ~7200hz interrupt
-	TIMSK |= 0x10; // Enable compare interrupt
+	TCCR1B = 0x03; // clk/64
+	OCR1A = grad_dur;  // ~1200hz interrupt
+	TIMSK |= (1 << OCIE1A); // Enable compare interrupt
 	
 	/* Init 8-bit counter with external oscillator */
 	TCCR2 = 0x07;          // clk/1024
@@ -330,9 +350,10 @@ inline void init()
 	
 	/* Turn off leds by default by setting 1 to OE */
 	led_off();
+	output_to_sr(0xff0000);
 	
 	/* Finally set desired sleep mode */
-	set_sleep_mode(SLEEP_MODE_IDLE);
+	//set_sleep_mode(SLEEP_MODE_IDLE);
 		
 	sei();
 }
@@ -346,6 +367,6 @@ int main(void)
     while(1)
     {
         /* Do nothing. Sleep and wake on interrupts */
-		sleep_mode();
+		//sleep_mode();
     }
 }
